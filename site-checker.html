@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SiteScope — Проверка сайтов</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --panel: #111118;
+    --border: #1e1e2e;
+    --accent: #00ff88;
+    --accent2: #00c8ff;
+    --warn: #ff6b35;
+    --text: #e0e0f0;
+    --muted: #5a5a7a;
+    --card: #13131f;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 50px;
+  }
+
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .logo-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+
+  h1 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.95rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Safety badge */
+  .safe-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.2);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 0.78rem;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 12px;
+  }
+
+  .safe-badge::before { content: '🛡️'; }
+
+  /* Input area */
+  .input-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .url-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .url-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,255,136,0.1);
+  }
+
+  .url-input::placeholder { color: var(--muted); }
+
+  .btn-check {
+    background: linear-gradient(135deg, var(--accent), #00d4aa);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 24px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-check:hover { opacity: 0.88; transform: translateY(-1px); }
+  .btn-check:active { transform: translateY(0); }
+  .btn-check:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Options */
+  .options-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+
+  .option-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+
+  .option-chip input { display: none; }
+  .option-chip.active {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(0,200,255,0.06);
+  }
+
+  /* Results */
+  #results { display: none; }
+
+  .result-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    animation: slideIn 0.4s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-ok { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .dot-warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+  .dot-checking {
+    background: var(--accent2);
+    animation: pulse 1s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .card-url {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--accent2);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .card-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  /* Screenshot area */
+  .screenshot-area {
+    padding: 20px;
+  }
+
+  .screenshot-frame {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .screenshot-frame img {
+    width: 100%;
+    display: block;
+    border-radius: 8px;
+  }
+
+  .loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 40px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+  }
+
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Info grid */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .info-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+
+  .info-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+
+  .info-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .info-value.ok { color: var(--accent); }
+  .info-value.warn { color: var(--warn); }
+
+  /* Security checks */
+  .checks-list {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+  }
+
+  .check-icon { font-size: 1rem; flex-shrink: 0; }
+
+  .check-label { flex: 1; }
+
+  .check-result {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+
+  .check-result.pass { color: var(--accent); }
+  .check-result.fail { color: var(--warn); }
+  .check-result.info { color: var(--accent2); }
+
+  /* Whois panel */
+  .section-title {
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+    margin-top: 16px;
+  }
+
+  /* Error state */
+  .error-msg {
+    padding: 20px;
+    text-align: center;
+    color: var(--warn);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+  }
+
+  /* Open link */
+  .open-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent2);
+    font-size: 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    text-decoration: none;
+    padding: 6px 12px;
+    border: 1px solid rgba(0,200,255,0.2);
+    border-radius: 6px;
+    margin-top: 10px;
+    transition: background 0.2s;
+  }
+  .open-link:hover { background: rgba(0,200,255,0.08); }
+
+  /* History */
+  .history-section {
+    margin-top: 30px;
+  }
+
+  .history-title {
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+  }
+
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    font-size: 0.83rem;
+  }
+
+  .history-item:hover { border-color: var(--accent2); }
+
+  .h-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .h-url {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .h-time { color: var(--muted); font-size: 0.75rem; }
+  .h-del {
+    color: var(--muted);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.2s;
+  }
+  .h-del:hover { color: var(--warn); }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed;
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.78rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 100;
+  }
+
+  @media (max-width: 600px) {
+    .input-row { flex-direction: column; }
+    .btn-check { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🔍</div>
+      <h1>SiteScope</h1>
+    </div>
+    <div class="subtitle">// безопасная проверка сайтов</div>
+    <div class="safe-badge">Скриншот делается на стороннем сервере — твой ПК не открывает сайт</div>
+  </header>
+
+  <div class="input-section">
+    <div class="input-row">
+      <input
+        type="text"
+        class="url-input"
+        id="urlInput"
+        placeholder="https://example.com или просто example.com"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="btn-check" id="checkBtn" onclick="checkSite()">▶ Проверить</button>
+    </div>
+    <div class="options-row">
+      <label class="option-chip active" id="opt-screenshot">
+        <input type="checkbox" checked> 📸 Скриншот
+      </label>
+      <label class="option-chip active" id="opt-security">
+        <input type="checkbox" checked> 🔒 Безопасность
+      </label>
+      <label class="option-chip active" id="opt-info">
+        <input type="checkbox" checked> 🌐 WHOIS
+      </label>
+    </div>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="history-section" id="historySection" style="display:none">
+    <div class="history-title">// последние проверки</div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+  const history = JSON.parse(localStorage.getItem('sitescope_history') || '[]');
+  renderHistory();
+
+  // Toggle option chips
+  document.querySelectorAll('.option-chip').forEach(chip => {
+    chip.addEventListener('click', () => chip.classList.toggle('active'));
+  });
+
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkSite();
+  });
+
+  function normalizeUrl(url) {
+    url = url.trim();
+    if (!url) return null;
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    try { new URL(url); return url; } catch { return null; }
+  }
+
+  function getDomain(url) {
+    try { return new URL(url).hostname; } catch { return url; }
+  }
+
+  async function checkSite() {
+    const raw = document.getElementById('urlInput').value;
+    const url = normalizeUrl(raw);
+    if (!url) {
+      alert('Введи корректный URL');
+      return;
+    }
+
+    const btn = document.getElementById('checkBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Загрузка...';
+
+    const resultsDiv = document.getElementById('results');
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = '';
+
+    const card = createCard(url);
+    resultsDiv.appendChild(card);
+
+    const optScreenshot = document.getElementById('opt-screenshot').classList.contains('active');
+    const optSecurity   = document.getElementById('opt-security').classList.contains('active');
+    const optWhois      = document.getElementById('opt-info').classList.contains('active');
+
+    const startTime = Date.now();
+
+    try {
+      const [dnsOk, tlsOk, pingMs] = await Promise.all([
+        checkDNS(url),
+        checkHTTPS(url),
+        pingCheck(url, startTime)
+      ]);
+
+      updateCardStatus(card, dnsOk ? 'ok' : 'warn');
+      updateCardTime(card, pingMs);
+
+      if (optScreenshot) {
+        addScreenshot(card, url);
+      }
+
+      if (optSecurity) {
+        addSecurityChecks(card, url, dnsOk, tlsOk);
+      }
+
+      if (optWhois) {
+        addWhoisInfo(card, url, pingMs);
+      }
+
+      // Save history
+      addToHistory(url, dnsOk ? 'ok' : 'warn');
+
+    } catch(e) {
+      card.querySelector('.screenshot-area').innerHTML =
+        `<div class="error-msg">⚠ Ошибка: ${e.message}</div>`;
+    }
+
+    btn.disabled = false;
+    btn.textContent = '▶ Проверить';
+  }
+
+  function createCard(url) {
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="status-dot dot-checking" id="statusDot"></div>
+        <div class="card-url">${url}</div>
+        <div class="card-time" id="cardTime">проверяю...</div>
+      </div>
+      <div class="screenshot-area" id="screenshotArea">
+        <div class="screenshot-frame">
+          <div class="loading-screen">
+            <div class="spinner"></div>
+            <span>Получаю данные...</span>
+          </div>
+        </div>
+      </div>
+    `;
+    return card;
+  }
+
+  function updateCardStatus(card, status) {
+    const dot = card.querySelector('#statusDot');
+    dot.className = 'status-dot ' + (status === 'ok' ? 'dot-ok' : 'dot-warn');
+  }
+
+  function updateCardTime(card, ms) {
+    card.querySelector('#cardTime').textContent = ms ? `${ms}ms` : 'таймаут';
+  }
+
+  async function checkDNS(url) {
+    try {
+      const domain = getDomain(url);
+      const resp = await fetch(`https://dns.google/resolve?name=${domain}&type=A`, { signal: AbortSignal.timeout(5000) });
+      const data = await resp.json();
+      return data.Status === 0 && data.Answer && data.Answer.length > 0;
+    } catch { return false; }
+  }
+
+  function checkHTTPS(url) {
+    return url.startsWith('https://');
+  }
+
+  async function pingCheck(url, startTime) {
+    try {
+      const domain = getDomain(url);
+      const resp = await fetch(`https://dns.google/resolve?name=${domain}&type=A`, { signal: AbortSignal.timeout(8000) });
+      await resp.json();
+      return Date.now() - startTime;
+    } catch { return null; }
+  }
+
+  function addScreenshot(card, url) {
+    const area = card.querySelector('#screenshotArea');
+
+    // Use screenshot.abstractapi.com (free, no auth needed for basic)
+    // Fallback to screenshotmachine with no-key public endpoint
+    const encodedUrl = encodeURIComponent(url);
+
+    // Primary: thum.io (free, no api key needed)
+    const screenshotUrl = `https://image.thum.io/get/width/900/crop/600/noanimate/${url}`;
+
+    area.innerHTML = `
+      <div class="screenshot-frame">
+        <div class="loading-screen" id="imgLoading_ss">
+          <div class="spinner"></div>
+          <span>Генерирую скриншот на внешнем сервере...</span>
+          <span style="font-size:0.7rem;color:var(--muted)">твой ПК сайт не открывает</span>
+        </div>
+        <img
+          src="${screenshotUrl}"
+          alt="Screenshot"
+          style="display:none"
+          onload="this.style.display='block'; this.previousElementSibling.previousElementSibling.previousElementSibling.style.display='none'; document.getElementById('imgLoading_ss') && (document.getElementById('imgLoading_ss').style.display='none');"
+          onerror="handleScreenshotError(this, '${encodedUrl}')"
+        />
+      </div>
+      <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+        <a href="${screenshotUrl}" target="_blank" class="open-link">↗ открыть скриншот</a>
+        <a href="${url}" target="_blank" rel="noopener noreferrer" class="open-link" style="border-color:rgba(255,107,53,0.3);color:var(--warn)">⚠ открыть сайт (осторожно)</a>
+      </div>
+    `;
+
+    // Fix the onload — simpler approach
+    const img = area.querySelector('img');
+    const loadingEl = area.querySelector('.loading-screen');
+    img.onload = () => {
+      img.style.display = 'block';
+      if (loadingEl) loadingEl.style.display = 'none';
+    };
+    img.onerror = () => handleScreenshotError(img, url);
+  }
+
+  function handleScreenshotError(img, url) {
+    const frame = img.closest('.screenshot-frame');
+    const encodedUrl = encodeURIComponent(url);
+    // Fallback to another service
+    const fallback = `https://mini.s-shot.ru/1280x720/PNG/1280/Z100/?${url}`;
+    if (!img.dataset.tried) {
+      img.dataset.tried = '1';
+      img.src = fallback;
+    } else {
+      frame.innerHTML = `
+        <div style="padding:30px; text-align:center; color:var(--muted); font-size:0.82rem; font-family:'JetBrains Mono',monospace;">
+          📵 Скриншот недоступен<br>
+          <span style="font-size:0.72rem; margin-top:8px; display:block;">Сервис скриншотов временно не отвечает</span>
+        </div>
+      `;
+    }
+  }
+
+  function addSecurityChecks(card, url, dnsOk, tlsOk) {
+    const area = card.querySelector('#screenshotArea');
+    const domain = getDomain(url);
+
+    const checks = [
+      { icon: '🔐', label: 'HTTPS / TLS шифрование', pass: tlsOk, text: tlsOk ? 'АКТИВЕН' : 'ОТСУТСТВУЕТ' },
+      { icon: '🌍', label: 'DNS-запись найдена', pass: dnsOk, text: dnsOk ? 'НАЙДЕНА' : 'НЕ НАЙДЕНА' },
+      { icon: '🏛️', label: 'Протокол', pass: true, text: url.startsWith('https') ? 'HTTPS' : 'HTTP', cls: 'info' },
+      { icon: '🔗', label: 'Домен', pass: true, text: domain, cls: 'info' },
+    ];
+
+    const sec = document.createElement('div');
+    sec.innerHTML = `<div class="section-title">// проверки безопасности</div>`;
+    const list = document.createElement('div');
+    list.className = 'checks-list';
+
+    checks.forEach(c => {
+      const item = document.createElement('div');
+      item.className = 'check-item';
+      const cls = c.cls || (c.pass ? 'pass' : 'fail');
+      item.innerHTML = `
+        <span class="check-icon">${c.icon}</span>
+        <span class="check-label">${c.label}</span>
+        <span class="check-result ${cls}">${c.text}</span>
+      `;
+      list.appendChild(item);
+    });
+
+    sec.appendChild(list);
+    area.appendChild(sec);
+  }
+
+  function addWhoisInfo(card, url, pingMs) {
+    const area = card.querySelector('#screenshotArea');
+    const domain = getDomain(url);
+
+    const grid = document.createElement('div');
+    grid.innerHTML = `<div class="section-title">// информация о сайте</div>`;
+    const inner = document.createElement('div');
+    inner.className = 'info-grid';
+
+    const items = [
+      { label: 'Домен', value: domain, cls: 'ok' },
+      { label: 'Протокол', value: url.startsWith('https') ? 'HTTPS' : 'HTTP', cls: url.startsWith('https') ? 'ok' : 'warn' },
+      { label: 'Время ответа', value: pingMs ? pingMs + ' мс' : 'таймаут', cls: pingMs && pingMs < 800 ? 'ok' : 'warn' },
+      { label: 'Проверено', value: new Date().toLocaleTimeString('ru-RU'), cls: '' },
+    ];
+
+    items.forEach(i => {
+      inner.innerHTML += `
+        <div class="info-item">
+          <div class="info-label">${i.label}</div>
+          <div class="info-value ${i.cls}">${i.value}</div>
+        </div>
+      `;
+    });
+
+    // RDAP lookup for registration info
+    fetchRDAP(domain, inner);
+
+    grid.appendChild(inner);
+    area.appendChild(grid);
+  }
+
+  async function fetchRDAP(domain, container) {
+    try {
+      const resp = await fetch(`https://rdap.verisign.com/com/v1/domain/${domain}`, { signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        const data = await resp.json();
+        const registrar = data.entities?.find(e => e.roles?.includes('registrar'))?.vcardArray?.[1]?.find(f => f[0] === 'fn')?.[3] || '—';
+        const events = data.events || [];
+        const reg = events.find(e => e.eventAction === 'registration')?.eventDate;
+        const exp = events.find(e => e.eventAction === 'expiration')?.eventDate;
+
+        if (registrar !== '—') {
+          container.innerHTML += `
+            <div class="info-item">
+              <div class="info-label">Регистратор</div>
+              <div class="info-value" style="font-size:0.8rem">${registrar}</div>
+            </div>
+          `;
+        }
+        if (reg) {
+          container.innerHTML += `
+            <div class="info-item">
+              <div class="info-label">Зарегистрирован</div>
+              <div class="info-value" style="font-size:0.85rem">${new Date(reg).toLocaleDateString('ru-RU')}</div>
+            </div>
+          `;
+        }
+        if (exp) {
+          const expDate = new Date(exp);
+          const soon = expDate < new Date(Date.now() + 30*24*60*60*1000);
+          container.innerHTML += `
+            <div class="info-item">
+              <div class="info-label">Истекает</div>
+              <div class="info-value ${soon ? 'warn' : ''}" style="font-size:0.85rem">${expDate.toLocaleDateString('ru-RU')}</div>
+            </div>
+          `;
+        }
+      }
+    } catch(e) { /* RDAP not available for all TLDs */ }
+  }
+
+  function addToHistory(url, status) {
+    const existing = history.findIndex(h => h.url === url);
+    if (existing !== -1) history.splice(existing, 1);
+    history.unshift({ url, status, time: new Date().toLocaleTimeString('ru-RU') });
+    if (history.length > 10) history.pop();
+    localStorage.setItem('sitescope_history', JSON.stringify(history));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const sec = document.getElementById('historySection');
+    const list = document.getElementById('historyList');
+    if (history.length === 0) { sec.style.display = 'none'; return; }
+    sec.style.display = 'block';
+    list.innerHTML = '';
+    history.forEach((item, i) => {
+      const el = document.createElement('div');
+      el.className = 'history-item';
+      el.innerHTML = `
+        <div class="h-dot" style="background:${item.status === 'ok' ? 'var(--accent)' : 'var(--warn)'}"></div>
+        <div class="h-url">${item.url}</div>
+        <div class="h-time">${item.time}</div>
+        <div class="h-del" onclick="deleteHistory(${i}, event)">✕</div>
+      `;
+      el.addEventListener('click', () => {
+        document.getElementById('urlInput').value = item.url;
+        checkSite();
+      });
+      list.appendChild(el);
+    });
+  }
+
+  function deleteHistory(i, e) {
+    e.stopPropagation();
+    history.splice(i, 1);
+    localStorage.setItem('sitescope_history', JSON.stringify(history));
+    renderHistory();
+  }
+</script>
+</body>
+</html>
